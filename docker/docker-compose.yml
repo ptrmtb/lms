@@ -7,7 +7,7 @@ services:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
       - --skip-character-set-client-handshake
-      - --skip-innodb-read-only-compressed # Temporary fix for MariaDB 10.6
+      - --skip-innodb-read-only-compressed
     environment:
       MYSQL_ROOT_PASSWORD: 123
     volumes:
@@ -18,15 +18,42 @@ services:
 
   frappe:
     image: frappe/bench:latest
-    command: bash /workspace/init.sh
+    command: >
+      bash -c "
+      # Check if bench exists
+      if [ -d '/home/frappe/frappe-bench/apps/frappe' ]; then
+        echo 'Bench already exists, skipping init';
+        cd frappe-bench && bench start;
+      else
+        echo 'Creating new bench...';
+        export PATH=\"$${NVM_DIR}/versions/node/v$${NODE_VERSION_DEVELOP}/bin/:$${PATH}\";
+        bench init --skip-redis-config-generation frappe-bench;
+        cd frappe-bench;
+        bench set-mariadb-host mariadb;
+        bench set-redis-cache-host redis:6379;
+        bench set-redis-queue-host redis:6379;
+        bench set-redis-socketio-host redis:6379;
+        sed -i '/redis/d' ./Procfile;
+        sed -i '/watch/d' ./Procfile;
+        bench get-app lms;
+        bench new-site lms.localhost --force --mariadb-root-password 123 --admin-password admin --no-mariadb-socket;
+        bench --site lms.localhost install-app lms;
+        bench --site lms.localhost set-config developer_mode 1;
+        bench --site lms.localhost clear-cache;
+        bench use lms.localhost;
+        bench start;
+      fi"
     environment:
       - SHELL=/bin/bash
+      - NODE_VERSION_DEVELOP=14  # Match your Node.js version
+      - NVM_DIR=/home/frappe/.nvm  # Confirm path in the base image
     working_dir: /home/frappe
-    volumes:
-      - .:/workspace
     ports:
       - 8000:8000
       - 9000:9000
+    depends_on:
+      - mariadb
+      - redis
 
 volumes:
   mariadb-data:
