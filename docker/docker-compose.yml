@@ -20,10 +20,9 @@ services:
     image: frappe/bench:latest
     command: >
       bash -c "
-      # Check if bench exists
-      if [ -d '/home/frappe/frappe-bench/apps/frappe' ]; then
+      if [[ -d '/home/frappe/frappe-bench' ]]; then
         echo 'Bench already exists, skipping init';
-        cd frappe-bench && bench start;
+        cd /home/frappe/frappe-bench && bench start;
       else
         echo 'Creating new bench...';
         export PATH=\"$${NVM_DIR}/versions/node/v$${NODE_VERSION_DEVELOP}/bin/:$${PATH}\";
@@ -45,8 +44,8 @@ services:
       fi"
     environment:
       - SHELL=/bin/bash
-      - NODE_VERSION_DEVELOP=14  # Match your Node.js version
-      - NVM_DIR=/home/frappe/.nvm  # Confirm path in the base image
+      - NODE_VERSION_DEVELOP=14  # Match your Frappe/ERPNext version
+      - NVM_DIR=/home/frappe/.nvm
     working_dir: /home/frappe
     ports:
       - 8000:8000
